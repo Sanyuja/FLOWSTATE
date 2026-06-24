@@ -1,0 +1,74 @@
+# ============================================================
+# FLOWSTATE .gitignore
+# RULE: Share the framework. Keep your pipelines private.
+# ============================================================
+
+# ── SECRETS & CREDENTIALS ───────────────────────────────────
+.env
+.env.*
+!.env.example
+credentials/
+*.key
+*.pem
+*.p12
+
+# ── PERSONA CONFIGS (your private voice + content rules) ────
+persona.json
+personas/
+voice-brief.json
+voice-brief.md
+
+# ── N8N WORKFLOW EXPORTS (contain your folder paths + IDs) ──
+# Export your real workflows locally. Never push them.
+# Only the sanitized /workflows/reference-workflow.json goes in.
+*_pipeline.json
+*_approval_handler.json
+*_workflow_personal.json
+
+# ── CONTENT & MEDIA (never commit content files) ────────────
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.mp4
+*.mov
+*.avi
+*.webm
+*.mp3
+
+# ── LOCAL DATA ───────────────────────────────────────────────
+pending_approvals.json
+pending_reels.json
+*_temp.json
+*.csv
+content_db/
+_vault/
+_approved/
+
+# ── PYTHON ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+env/
+
+# ── NODE / SHARP ─────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# ── EDITORS ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.code-workspace
