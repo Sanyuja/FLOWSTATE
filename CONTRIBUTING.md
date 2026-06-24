@@ -1,51 +1,60 @@
 # Contributing to FLOWSTATE
 
-First: thank you. This project grows through community, not just one person's ideas.
+Thank you. This project is most useful when it covers a wide range of creator types, not just one person's use case.
 
 ---
 
-## What We're Looking For
+## What's most valuable to contribute
 
-**New prompt templates** that solve a real problem for women entrepreneurs or creators. The bar is: *would this save someone an hour?*
+**Persona config examples**
+The best contributions are real or realistic `persona.example.json` files for different creator types. Examples that would be immediately useful:
 
-**Better examples** — real-world input/output pairs that show what a prompt can do.
+- Fitness/gym creator (Instagram + YouTube Shorts)
+- Food blogger (Instagram + TikTok)
+- Business/thought leadership (LinkedIn + Threads)
+- Gaming streamer (Twitch + YouTube + Instagram)
+- Artist/illustrator (Instagram + Behance)
+- Musician (Instagram + YouTube + TikTok)
 
-**Prompt improvements** — if you've tested a prompt and found a better version, share it.
+Add these to `config/examples/` as `persona-[type].example.json`.
+
+**Platform connectors**
+The current free stack covers Instagram and Threads. Contributions for additional platform connectors are welcome:
+
+- YouTube Shorts (video upload via YouTube Data API)
+- TikTok (TikTok for Developers API)
+- LinkedIn (company page posting)
+- Pinterest
+
+Add new platform logic as modular code blocks that can be inserted into the approval handler workflow.
+
+**Linux/Mac setup**
+The current setup scripts are Windows PowerShell. Shell script equivalents for Linux/Mac would make this accessible to more users.
+
+**Bug fixes and improvements**
+Open an issue first for anything that changes existing workflow behavior.
 
 ---
 
-## How to Contribute
+## How to contribute
 
 1. Fork the repo
-2. Create a branch: `git checkout -b prompt/your-prompt-name`
-3. Add your file in the right folder (`/prompts/` or `/examples/`)
-4. Follow the format of existing files (header, use case, the prompt, tips)
-5. Open a pull request with a short description of what it does and who it's for
+2. Create a branch: `git checkout -b feature/your-thing`
+3. Make your changes
+4. Open a pull request with a clear description of what it does and why
+
+Keep PRs focused. One thing per PR.
 
 ---
 
-## Prompt Quality Guidelines
+## What not to contribute
 
-- **Specific beats generic.** A prompt for "writing a launch email for a service-based business" is more useful than "write a marketing email."
-- **Human tone required.** No corporate language. No hustle culture. No fake urgency.
-- **Test it first.** Run the prompt yourself before submitting. Paste the output in your PR so reviewers can see what it produces.
-- **Center the user, not the AI.** The prompt should make the person feel capable, not dependent.
-
----
-
-## What We Don't Accept
-
-- Prompts that reinforce diet culture, beauty standards, or productivity shame
-- Prompts that feel extractive or manipulative (dark patterns, fake urgency, etc.)
-- Generic "make me a social media post" prompts with no specificity
-- Anything that requires paid tools or API keys to run
+- Actual API keys, real folder paths, or personal content
+- Persona configs containing real voice briefs tied to a real person without permission
+- Changes that break the existing n8n workflow structure without a migration path
 
 ---
 
-## Questions?
+## Questions
 
-Open an issue or reach out via [LinkedIn](https://www.linkedin.com/in/sanyujadesai).
-
----
-
-*This is a feminist open-source project. We build tools that respect the people using them.*
+Open a GitHub issue. Describe what you're trying to do and where you're stuck.

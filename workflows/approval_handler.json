@@ -1,0 +1,59 @@
+{
+  "name": "Content Creator \u2014 Approval Handler",
+  "nodes": [
+    {
+      "id": "node-wh-001",
+      "name": "\ud83d\udce8 Twilio Webhook Receiver",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 320],
+      "webhookId": "approval-handler",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "approval-handler",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-wh-002",
+      "name": "\ud83d\udce4 Respond to Twilio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [480, 160],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>",
+        "options": {
+          "responseHeaders": {
+            "entries": [{ "name": "Content-Type", "value": "text/xml" }]
+          }
+        }
+      }
+    },
+    {
+      "id": "node-wh-003",
+      "name": "\u26a1 Parse Reply + Post (Free APIs)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 500],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================================\n// Content Creator \u2014 Approval Handler (FREE STACK)\n// Imgur image hosting + Instagram Graph API + Threads API\n// X/Twitter: manual post (official API = $100/mo, skipped)\n// ============================================================\nconst fs = require('fs');\nconst input = $input.item.json;\n\nconst replyRaw = (input.Body || '').trim();\nconst replyCmd = replyRaw.toUpperCase().split('\\n')[0].trim();\nconsole.log('[APPROVAL] Received:', JSON.stringify(replyCmd));\n\n// --- Load pending approvals ---\nconst pendingFilePath = 'D:\\\\categorized content\\\\scripts\\\\pending_approvals.json';\nlet pending = {};\ntry {\n  pending = JSON.parse(fs.readFileSync(pendingFilePath, 'utf8'));\n} catch(e) {\n  return { action: 'error', error: 'Cannot read pending_approvals.json: ' + e.message };\n}\n\nconst items         = Object.values(pending).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));\nconst awaitCaption  = items.find(i => i.status === 'awaiting_custom_caption');\nconst pendingItem   = awaitCaption || items.find(i => i.status === 'pending');\n\nif (!pendingItem) return { action: 'none', message: 'No pending posts.' };\n\n// --- Credentials ---\nconst TWILIO_SID      = process.env.TWILIO_ACCOUNT_SID       || $env.TWILIO_ACCOUNT_SID;\nconst TWILIO_TOKEN    = process.env.TWILIO_AUTH_TOKEN         || $env.TWILIO_AUTH_TOKEN;\nconst TWILIO_FROM     = process.env.TWILIO_WHATSAPP_FROM      || $env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';\nconst TWILIO_TO       = process.env.TWILIO_WHATSAPP_TO        || $env.TWILIO_WHATSAPP_TO;\nconst IMGUR_CLIENT_ID = process.env.IMGUR_CLIENT_ID || $env.IMGUR_CLIENT_ID;
+  \nconst IG_USER_ID      = process.env.INSTAGRAM_USER_ID         || $env.INSTAGRAM_USER_ID;\nconst IG_TOKEN        = process.env.INSTAGRAM_ACCESS_TOKEN    || $env.INSTAGRAM_ACCESS_TOKEN;\nconst TH_USER_ID      = process.env.THREADS_USER_ID           || $env.THREADS_USER_ID;\nconst TH_TOKEN        = process.env.THREADS_ACCESS_TOKEN      || $env.THREADS_ACCESS_TOKEN;\n\nasync function sendWhatsApp(msg) {\n  const url   = 'https://api.twilio.com/2010-04-01/Accounts/' + TWILIO_SID + '/Messages.json';\n  const creds = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');\n  await fetch(url, {\n    method:  'POST',\n    headers: { 'Authorization': 'Basic ' + creds, 'Content-Type': 'application/x-www-form-urlencoded' },\n    body:    new URLSearchParams({ From: TWILIO_FROM, To: TWILIO_TO, Body: msg }).toString(),\n  });\n}\n\nfunction savePending() {\n  fs.writeFileSync(pendingFilePath, JSON.stringify(pending, null, 2));\n}\n\nasync function postContent(item, captionIndex, overrideCaption) {\n  const chosenCaption = overrideCaption || item.captions[captionIndex];\n  const results = { imgur: null, instagram: null, threads: null };\n\n  // --- 1. Upload blurred image to Imgur (free public URL) ---\n  const imgBuffer = fs.readFileSync(item.instagramPath);\n  const b64       = imgBuffer.toString('base64');\n\n  const imgurRes  = await fetch('https://api.imgur.com/3/image', {\n    method:  'POST',\n    headers: { 'Authorization': 'Client-ID ' + IMGUR_CLIENT_ID, 'Content-Type': 'application/json' },\n    body:    JSON.stringify({ image: b64, type: 'base64' }),\n  });\n  const imgurData = await imgurRes.json();\n  const publicUrl = imgurData?.data?.link;\n\n  if (!publicUrl) {\n    await sendWhatsApp('\\u274c Cloudinary upload failed.\\n' + JSON.stringify(cloudData).substring(0, 200));\n    return;\n  }\n  results.imgur = publicUrl;\n  console.log('[IMGUR] Public URL:', publicUrl);\n\n  // --- 2. Post to Instagram Graph API (free) ---\n  try {\n    const igContRes = await fetch(\n      'https://graph.facebook.com/v18.0/' + IG_USER_ID + '/media?' +\n      new URLSearchParams({ image_url: publicUrl, caption: chosenCaption, access_token: IG_TOKEN }),\n      { method: 'POST' }\n    );\n    const igCont = await igContRes.json();\n\n    if (igCont.id) {\n      const igPubRes = await fetch(\n        'https://graph.facebook.com/v18.0/' + IG_USER_ID + '/media_publish?' +\n        new URLSearchParams({ creation_id: igCont.id, access_token: IG_TOKEN }),\n        { method: 'POST' }\n      );\n      const igPub = await igPubRes.json();\n      results.instagram = igPub.id || null;\n      console.log('[INSTAGRAM] Posted:', igPub.id);\n\n      // Add hashtags as first comment\n      const tags = (item.hashtags || []).join(' ');\n      if (tags && igPub.id) {\n        await fetch(\n          'https://graph.facebook.com/v18.0/' + igPub.id + '/comments?' +\n          new URLSearchParams({ message: tags, access_token: IG_TOKEN }),\n          { method: 'POST' }\n        );\n      }\n    } else {\n      console.log('[INSTAGRAM] Error:', JSON.stringify(igCont));\n    }\n  } catch(e) { console.log('[INSTAGRAM] Caught:', e.message); }\n\n  // --- 3. Post to Threads API (free) ---\n  try {\n    const thContRes = await fetch(\n      'https://graph.threads.net/v1.0/' + TH_USER_ID + '/threads?' +\n      new URLSearchParams({ media_type: 'IMAGE', image_url: publicUrl, text: chosenCaption, access_token: TH_TOKEN }),\n      { method: 'POST' }\n    );\n    const thCont = await thContRes.json();\n\n    if (thCont.id) {\n      const thPubRes = await fetch(\n        'https://graph.threads.net/v1.0/' + TH_USER_ID + '/threads_publish?' +\n        new URLSearchParams({ creation_id: thCont.id, access_token: TH_TOKEN }),\n        { method: 'POST' }\n      );\n      const thPub = await thPubRes.json();\n      results.threads = thPub.id || null;\n      console.log('[THREADS] Posted:', thPub.id);\n    } else {\n      console.log('[THREADS] Error:', JSON.stringify(thCont));\n    }\n  } catch(e) { console.log('[THREADS] Caught:', e.message); }\n\n  // --- 4. Save state + confirm via WhatsApp ---\n  item.status        = 'posted';\n  item.postedAt      = new Date().toISOString();\n  item.chosenCaption = chosenCaption;\n  item.results       = results;\n  pending[item.id]   = item;\n  savePending();\n\n  const igLine    = results.instagram ? '\\u2705 Instagram' : '\\u26a0\\ufe0f Instagram \u2014 check n8n logs';\n  const thLine    = results.threads   ? '\\u2705 Threads'   : '\\u26a0\\ufe0f Threads \u2014 check n8n logs';\n  const capLabel  = captionIndex >= 0 ? 'Caption ' + (captionIndex + 1) : 'Your caption';\n  const preview   = chosenCaption.substring(0, 120) + (chosenCaption.length > 120 ? '...' : '');\n\n  await sendWhatsApp(\n    '\\ud83d\\udd25 Posted!\\n' + igLine + '\\n' + thLine + '\\n\\u270f\\ufe0f X \u2014 copy & post manually\\n\\n' +\n    capLabel + ':\\n\"' + preview + '\"'\n  );\n}\n\n// --- Custom caption flow ---\nif (pendingItem.status === 'awaiting_custom_caption') {\n  await postContent(pendingItem, -1, replyRaw);\n  return { action: 'posted_custom', approvalId: pendingItem.id };\n}\n\n// --- Route standard commands ---\nif (replyCmd === 'Y1') { await postContent(pendingItem, 0); return { action: 'posted', captionIndex: 0 }; }\nif (replyCmd === 'Y2') { await postContent(pendingItem, 1); return { action: 'posted', captionIndex: 1 }; }\nif (replyCmd === 'Y3') { await postContent(pendingItem, 2); return { action: 'posted', captionIndex: 2 }; }\n\nif (replyCmd === 'N') {\n  pendingItem.status = 'skipped';\n  pending[pendingItem.id] = pendingItem;\n  savePending();\n  await sendWhatsApp('\\u23ed\\ufe0f Skipped: ' + pendingItem.fileName);\n  return { action: 'skipped' };\n}\n\nif (replyCmd === 'E') {\n  pendingItem.status = 'awaiting_custom_caption';\n  pending[pendingItem.id] = pendingItem;\n  savePending();\n  await sendWhatsApp('\\u270f\\ufe0f Send your caption now and I\\'ll post it.');\n  return { action: 'awaiting_custom_caption' };\n}\n\nreturn { action: 'unknown', receivedReply: replyCmd, hint: 'Use Y1 / Y2 / Y3 / N / E' };"
+      }
+    }
+  ],
+  "connections": {
+    "\ud83d\udce8 Twilio Webhook Receiver": {
+      "main": [[
+        { "node": "\ud83d\udce4 Respond to Twilio",              "type": "main", "index": 0 },
+        { "node": "\u26a1 Parse Reply + Post (Free APIs)", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "tags": [{ "name": "content-creator" }, { "name": "free-stack" }],
+  "pinData": {}
+}

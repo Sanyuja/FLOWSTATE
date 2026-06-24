@@ -1,0 +1,188 @@
+{
+  "name": "Content Creator \u2014 Image Pipeline",
+  "nodes": [
+    {
+      "id": "node-001",
+      "name": "\ud83d\udcc1 File Watcher",
+      "type": "n8n-nodes-base.localFileTrigger",
+      "typeVersion": 1,
+      "position": [240, 320],
+      "parameters": {
+        "path": "YOUR_CONTENT_FOLDER",
+        "events": ["add"],
+        "recursive": true
+      }
+    },
+    {
+      "id": "node-002",
+      "name": "\ud83d\uded1 Skip Output Folders?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 320],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-001",
+              "leftValue": "={{ $json.path }}",
+              "rightValue": "(_approved|_vault|scripts|\\.json$)",
+              "operator": { "type": "string", "operation": "notRegex" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-003",
+      "name": "\ud83d\udeab Ignore — Output File",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [480, 160]
+    },
+    {
+      "id": "node-004",
+      "name": "\ud83d\udd0d Is Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 440],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-002",
+              "leftValue": "={{ $json.path }}",
+              "rightValue": "\\.(jpg|jpeg|png|heic|webp|gif)$",
+              "operator": { "type": "string", "operation": "regex" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-005",
+      "name": "\ud83d\udcf9 Video Detected — Skip for Now",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [720, 620],
+      "notes": "Video pipeline is Phase 2. Files will be processed in the video workflow."
+    },
+    {
+      "id": "node-006",
+      "name": "\ud83d\udcc2 Get File Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 340],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const filePath = $input.item.json.path || $input.item.json.file || $input.item.json.filePath;\nconst normalised = filePath.replace(/\\//g, '\\\\');\nconst parts = normalised.split('\\\\');\nconst fileName = parts[parts.length - 1];\nconst folderName = (parts[parts.length - 2] || '').toLowerCase().trim();\nconst ext = fileName.split('.').pop().toLowerCase();\nconst baseName = fileName.replace(new RegExp('\\\\.' + ext + '$', 'i'), '');\nconst timestamp = Date.now();\nconst outputFileName = baseName + '_p1_' + timestamp + '.' + ext;\n\n// CONFIGURE THIS: Update folder names and blur levels to match your persona config\nconst blurMap = {\n  'your_content_type_1': { level: ''none'',       needsBlur: false, vaultOnly: false },\n  ''your_content_type_2'': { level: ''light'',      needsBlur: false, vaultOnly: false },\n  ''your_content_type_3'': { level: ''moderate'',   needsBlur: true,  vaultOnly: false },\n  ''your_content_type_4'': { level: ''aggressive'', needsBlur: true,  vaultOnly: false },\n  ''private'':             { level: ''none'',       needsBlur: false, vaultOnly: true  },\n};\n\nconst cfg = blurMap[folderName] || { level: 'light', needsBlur: false, vaultOnly: false };\n\nreturn {\n  filePath,\n  fileName,\n  folderName,\n  ext,\n  baseName,\n  outputFileName,\n  blurLevel: cfg.level,\n  needsBlur: cfg.needsBlur,\n  vaultOnly: cfg.vaultOnly,\n  instagramPath: 'D:\\\\categorized content_approved\\\\instagram\\\\' + outputFileName,\n  xPath:         'D:\\\\categorized content_approved\\\\x\\\\' + outputFileName,\n  threadsPath:   'D:\\\\categorized content_approved\\\\threads\\\\' + outputFileName,\n  ofReadyPath:   'D:\\\\categorized content_vault\\\\OF_ready\\\\' + outputFileName,\n};"
+      }
+    },
+    {
+      "id": "node-007",
+      "name": "\ud83d\udd1e Vault Only?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 340],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-003",
+              "leftValue": "={{ $json.vaultOnly }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equal" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-008",
+      "name": "\ud83d\udce6 Copy to Vault Only (NSFW)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 200],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst { filePath, ofReadyPath, folderName } = $input.item.json;\n\nconst dir = path.dirname(ofReadyPath);\nif (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });\nfs.copyFileSync(filePath, ofReadyPath);\n\nconsole.log('[VAULT ONLY] ' + folderName + ' content copied to OF_ready: ' + ofReadyPath);\nreturn {\n  ...$input.item.json,\n  action: 'vault_only',\n  result: 'NSFW content moved to OF_ready vault. Not posted.',\n};"
+      }
+    },
+    {
+      "id": "node-009",
+      "name": "\ud83c\udf00 Vision + Blur + Vault Copy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 480],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================================\n// NODE: Vision + Blur + Vault Copy\n// Reads image, calls GPT-4o Vision for blur regions,\n// applies Sharp blur, saves to instagram + OF_ready.\n// ============================================================\nconst sharp = require('sharp');\nconst fs = require('fs');\nconst path = require('path');\n\nconst input = $input.item.json;\nconst { filePath, instagramPath, ofReadyPath, blurLevel, ext, needsBlur } = input;\n\n// --- Step 1: Read file as base64 ---\nconst imageBuffer = fs.readFileSync(filePath);\nconst base64 = imageBuffer.toString('base64');\nconst mimeMap = { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', heic:'image/heic', gif:'image/gif' };\nconst mime = mimeMap[ext] || 'image/jpeg';\n\n// --- Step 2: GPT-4o Vision blur detection ---\nconst blurInstructions = {\n  aggressive: 'This is pole dance/dance content. Be very aggressive. Flag ALL: visible skin areas (arms, legs, torso, back, midriff, chest region), body-revealing clothing, suggestive poses. Return bounding boxes for EVERY such region.',\n  moderate:   'This is outfit/activewear content. Flag: visible midriff, low necklines, form-fitting areas showing significant body shape, bare legs above knee.',\n  light:      'Only flag explicit nudity or content that clearly violates Instagram community guidelines.',\n  none:       'This content is safe. Return empty regions array.',\n};\nconst instruction = blurInstructions[blurLevel] || blurInstructions['light'];\n\nconst OPENAI_KEY = process.env.OPENAI_API_KEY || $env.OPENAI_API_KEY;\n\nconst visionRes = await fetch('https://api.openai.com/v1/chat/completions', {\n  method: 'POST',\n  headers: { 'Authorization': 'Bearer ' + OPENAI_KEY, 'Content-Type': 'application/json' },\n  body: JSON.stringify({\n    model: 'gpt-4o',\n    messages: [{\n      role: 'user',\n      content: [\n        { type: 'image_url', image_url: { url: 'data:' + mime + ';base64,' + base64 } },\n        { type: 'text', text: 'You are an Instagram content safety analyzer.\\n\\n' + instruction + '\\n\\nReturn ONLY valid JSON (no markdown, no explanation):\\n{\"needsBlur\":true/false,\"regions\":[{\"x\":number,\"y\":number,\"width\":number,\"height\":number}],\"safeForInstagram\":true/false}' }\n      ]\n    }],\n    max_tokens: 800,\n  })\n});\n\nconst visionData = await visionRes.json();\nconst visionText = visionData.choices?.[0]?.message?.content || '{\"needsBlur\":false,\"regions\":[]}';\n\nlet blurRegions = [];\nlet safeForInstagram = true;\ntry {\n  const cleaned = visionText.replace(/```json\\n?|\\n?```/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n  blurRegions = parsed.regions || [];\n  safeForInstagram = parsed.safeForInstagram !== false;\n} catch(e) {\n  console.log('[WARN] Vision parse error — no blur applied:', e.message);\n}\n\n// --- Step 3: Ensure output dirs exist ---\n[path.dirname(instagramPath), path.dirname(ofReadyPath)].forEach(dir => {\n  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });\n});\n\n// --- Step 4: Apply blur and save Instagram version ---\nif (blurRegions.length > 0 && needsBlur !== false) {\n  const imageSharp = sharp(filePath);\n  const meta = await imageSharp.metadata();\n  const overlays = blurRegions\n    .filter(r => r.width > 0 && r.height > 0 && r.x < (meta.width||9999) && r.y < (meta.height||9999))\n    .map(region => ({\n      input: Buffer.from('<svg width=\"' + region.width + '\" height=\"' + region.height + '\"><rect width=\"' + region.width + '\" height=\"' + region.height + '\" fill=\"rgba(180,180,180,0.85)\" rx=\"4\"/></svg>'),\n      blend: 'over',\n      left: Math.max(0, Math.round(region.x)),\n      top:  Math.max(0, Math.round(region.y)),\n    }));\n\n  await sharp(filePath)\n    .composite(overlays)\n    .blur(20)\n    .toFile(instagramPath);\n\n  console.log('[BLUR] Applied ' + overlays.length + ' blur region(s) -> ' + instagramPath);\n} else {\n  await sharp(filePath).toFile(instagramPath);\n  console.log('[COPY] No blur needed -> ' + instagramPath);\n}\n\n// --- Step 5: Copy original to OF_ready ---\nfs.copyFileSync(filePath, ofReadyPath);\nconsole.log('[VAULT] Original copied to OF_ready -> ' + ofReadyPath);\n\nreturn {\n  ...input,\n  blurRegions,\n  blurApplied: blurRegions.length > 0,\n  blurCount: blurRegions.length,\n  safeForInstagram,\n  instagramReady: true,\n  vaultReady: true,\n  visionRaw: visionText,\n};"
+      }
+    },
+    {
+      "id": "node-010",
+      "name": "\u270d\ufe0f Generate Captions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 480],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================================\n// NODE: Generate 3 Captions via GPT-4o\n// Uses creator voice brief.\n// ============================================================\nconst input = $input.item.json;\nconst { folderName, fileName } = input;\n\nconst OPENAI_KEY = process.env.OPENAI_API_KEY || $env.OPENAI_API_KEY;\n\nconst captionRes = await fetch('https://api.openai.com/v1/chat/completions', {\n  method: 'POST',\n  headers: { 'Authorization': 'Bearer ' + OPENAI_KEY, 'Content-Type': 'application/json' },\n  body: JSON.stringify({\n    model: 'gpt-4o',\n    messages: [\n      {\n        role: 'system',\n        content: 'You are the exclusive caption writer for a bold, classy, sensual lifestyle creator. Voice brief: CONFIGURE THIS: Replace this with your persona's voice brief from config/persona.example.json. The AI writes every caption in exactly this voice. Return ONLY valid JSON, no markdown.'\n      },\n      {\n        role: 'user',\n        content: 'Generate exactly 3 caption options for ' + folderName + ' content. Return ONLY this JSON:\\n{\\n  \"captions\": [\"caption1\", \"caption2\", \"caption3\"],\\n  \"hashtags\": [\"#tag1\", \"#tag2\", \"#tag3\", \"#tag4\", \"#tag5\", \"#tag6\", \"#tag7\"]\\n}'\n      }\n    ],\n    max_tokens: 600,\n  })\n});\n\nconst captionData = await captionRes.json();\nconst captionText = captionData.choices?.[0]?.message?.content || '{\"captions\":[\"\",\"\",\"\"],\"hashtags\":[]}';\n\nlet captions = ['Caption 1 (parse error)', 'Caption 2 (parse error)', 'Caption 3 (parse error)'];\nlet hashtags = [];\ntry {\n  const cleaned = captionText.replace(/```json\\n?|\\n?```/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n  captions = parsed.captions || captions;\n  hashtags = parsed.hashtags || hashtags;\n} catch(e) {\n  console.log('[WARN] Caption parse error:', e.message);\n}\n\n// CONFIGURE THIS: Update with your folders and preferred posting times\nconst timeMap = {\n  dance:       '8:00 PM',\n  fits:        '12:00 PM',\n  'yoga pants':'7:00 AM',\n  coffee:      '9:00 AM',\n  concerts:    '10:00 PM',\n  nature:      '6:00 AM',\n  house:       '2:00 PM',\n  fam:         '11:00 AM',\n};\nconst suggestedTime = timeMap[folderName] || '6:00 PM';\n\nreturn {\n  ...input,\n  captions,\n  hashtags,\n  suggestedTime,\n};"
+      }
+    },
+    {
+      "id": "node-011",
+      "name": "\ud83d\udcf1 Save State + Send WhatsApp Approval",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 480],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================================\n// NODE: Save Pending Approval + Send WhatsApp via Twilio\n// Stores approval state to JSON file, sends WhatsApp message.\n// ============================================================\nconst fs = require('fs');\nconst input = $input.item.json;\nconst { folderName, captions, hashtags, suggestedTime, instagramPath, ofReadyPath, fileName, outputFileName } = input;\n\nconst TWILIO_SID      = process.env.TWILIO_ACCOUNT_SID   || $env.TWILIO_ACCOUNT_SID;\nconst TWILIO_TOKEN    = process.env.TWILIO_AUTH_TOKEN     || $env.TWILIO_AUTH_TOKEN;\nconst TWILIO_FROM     = process.env.TWILIO_WHATSAPP_FROM  || $env.TWILIO_WHATSAPP_FROM  || 'whatsapp:+14155238886';\nconst TWILIO_TO       = process.env.TWILIO_WHATSAPP_TO    || $env.TWILIO_WHATSAPP_TO;\nconst N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL       || $env.N8N_WEBHOOK_URL || 'YOUR_NGROK_URL/webhook/approval-handler';\n\n// --- Build approval message ---\nconst msg = [\n  '\\ud83d\\udd25 content_creator \\u2014 Post Ready',\n  '',\n  '\\ud83d\\udcc1 Category: ' + folderName,\n  '\\ud83d\\udcc5 Suggested time: ' + suggestedTime,\n  '\\ud83c\\udf10 Platforms: Instagram + X + Threads',\n  '',\n  'Caption 1: ' + captions[0],\n  'Caption 2: ' + captions[1],\n  'Caption 3: ' + captions[2],\n  '',\n  'Reply:',\n  'Y1 \\u2014 Post with caption 1',\n  'Y2 \\u2014 Post with caption 2',\n  'Y3 \\u2014 Post with caption 3',\n  'N  \\u2014 Skip this post',\n  'E  \\u2014 I\\'ll write my own caption',\n].join('\\n');\n\n// --- Save pending approval to file ---\nconst pendingFilePath = '\\\\scripts\\\\pending_approvals.json';\nlet pending = {};\ntry {\n  if (fs.existsSync(pendingFilePath)) {\n    pending = JSON.parse(fs.readFileSync(pendingFilePath, 'utf8'));\n  }\n} catch(e) { /* start fresh */ }\n\nconst approvalId = 'p1_' + Date.now();\npending[approvalId] = {\n  id:            approvalId,\n  fileName,\n  outputFileName,\n  folderName,\n  instagramPath,\n  ofReadyPath,\n  captions,\n  hashtags,\n  suggestedTime,\n  status:        'pending',\n  createdAt:     new Date().toISOString(),\n};\nfs.writeFileSync(pendingFilePath, JSON.stringify(pending, null, 2));\nconsole.log('[STATE] Saved pending approval:', approvalId);\n\n// --- Send WhatsApp via Twilio ---\nconst twilioUrl = 'https://api.twilio.com/2010-04-01/Accounts/' + TWILIO_SID + '/Messages.json';\nconst creds = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');\n\nconst twilioRes = await fetch(twilioUrl, {\n  method: 'POST',\n  headers: { 'Authorization': 'Basic ' + creds, 'Content-Type': 'application/x-www-form-urlencoded' },\n  body: new URLSearchParams({ From: TWILIO_FROM, To: TWILIO_TO, Body: msg }).toString(),\n});\nconst twilioData = await twilioRes.json();\n\nconsole.log('[WHATSAPP] Sent:', twilioData.sid || JSON.stringify(twilioData));\n\nreturn {\n  ...input,\n  approvalId,\n  whatsappSent: !!twilioData.sid,\n  twilioMessageSid: twilioData.sid,\n  approvalMessage: msg,\n  status: 'awaiting_approval',\n};"
+      }
+    }
+  ],
+  "connections": {
+    "\ud83d\udcc1 File Watcher": {
+      "main": [[{ "node": "\ud83d\uded1 Skip Output Folders?", "type": "main", "index": 0 }]]
+    },
+    "\ud83d\uded1 Skip Output Folders?": {
+      "main": [
+        [{ "node": "\ud83d\udd0d Is Image?",              "type": "main", "index": 0 }],
+        [{ "node": "\ud83d\udeab Ignore \u2014 Output File", "type": "main", "index": 0 }]
+      ]
+    },
+    "\ud83d\udd0d Is Image?": {
+      "main": [
+        [{ "node": "\ud83d\udcc2 Get File Context",                 "type": "main", "index": 0 }],
+        [{ "node": "\ud83d\udcf9 Video Detected \u2014 Skip for Now", "type": "main", "index": 0 }]
+      ]
+    },
+    "\ud83d\udcc2 Get File Context": {
+      "main": [[{ "node": "\ud83d\udd1e Vault Only?", "type": "main", "index": 0 }]]
+    },
+    "\ud83d\udd1e Vault Only?": {
+      "main": [
+        [{ "node": "\ud83d\udce6 Copy to Vault Only (NSFW)",       "type": "main", "index": 0 }],
+        [{ "node": "\ud83c\udf00 Vision + Blur + Vault Copy",       "type": "main", "index": 0 }]
+      ]
+    },
+    "\ud83c\udf00 Vision + Blur + Vault Copy": {
+      "main": [[{ "node": "\u270d\ufe0f Generate Captions", "type": "main", "index": 0 }]]
+    },
+    "\u270d\ufe0f Generate Captions": {
+      "main": [[{ "node": "\ud83d\udcf1 Save State + Send WhatsApp Approval", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": [{ "name": "content-creator" }, { "name": "phase-1" }],
+  "pinData": {}
+}

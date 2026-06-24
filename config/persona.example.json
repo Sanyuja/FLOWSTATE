@@ -1,0 +1,48 @@
+{
+  "_instructions": "Copy this file, rename it persona.json, and fill in your values. This file is referenced by the n8n workflows -- the voice_brief, content_folders, and caption_style sections are what you paste into the workflow nodes.",
+
+  "persona": {
+    "name": "your_handle",
+    "display_name": "Your Display Name",
+
+    "voice_brief": "Replace this with a detailed description of your content voice. The AI writes every caption in exactly this voice. Be specific: describe your tone (warm/bold/funny/mysterious), what you talk about, what you never say, and what your audience expects from you. The more detail you give, the more on-brand the captions will be. Example: 'Confident, warm, slightly playful. Never corporate, never thirsty. Short punchy captions. She states, she invites, she disappears. Hashtags go in first comment only, never in the caption body.'"
+  },
+
+  "platforms": {
+    "instagram": true,
+    "threads": true,
+    "x_manual": true,
+    "_note": "x_manual means captions are generated but you post to X yourself (API write access costs $100/month). Set instagram and threads to false if you don't use them."
+  },
+
+  "content_folders": {
+    "_note": "Each key is a subfolder name inside your CONTENT_BASE folder. blur levels: aggressive (pole/dance/skin), moderate (outfits/activewear), light (mild content), none (fully safe). vault_only content is saved to your vault and never posted.",
+
+    "your_content_type_1": { "blur": "none" },
+    "your_content_type_2": { "blur": "light" },
+    "your_content_type_3": { "blur": "moderate" },
+    "your_content_type_4": { "blur": "aggressive" },
+    "private":             { "vault_only": true }
+  },
+
+  "caption_style": {
+    "hashtags_in_first_comment": true,
+    "hashtags_per_post": 7,
+    "_note_hashtags": "Hashtags go in the first comment so they don't clutter the caption. Set hashtags_in_first_comment to false to put them at the bottom of the caption instead.",
+
+    "suggested_post_times": {
+      "_note": "Best time to post for each folder type. Used in the WhatsApp approval message as a suggestion.",
+      "your_content_type_1": "12:00 PM",
+      "your_content_type_2": "6:00 PM",
+      "your_content_type_3": "9:00 AM"
+    }
+  },
+
+  "paths": {
+    "_note": "These should match your environment variables. Set them in Windows Machine env vars via PowerShell (see docs/credentials-setup.md).",
+    "content_base":  "CONTENT_BASE env var  -- e.g. D:\\my-content",
+    "approved_base": "APPROVED_BASE env var -- e.g. D:\\my-content_approved",
+    "vault_base":    "VAULT_BASE env var    -- e.g. D:\\my-content_vault",
+    "scripts_dir":   "SCRIPTS_DIR env var   -- e.g. D:\\my-content\\scripts"
+  }
+}

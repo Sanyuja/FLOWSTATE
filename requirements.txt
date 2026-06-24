@@ -1,0 +1,16 @@
+# Core AI
+anthropic
+openai
+
+# Data / Excel
+pandas
+openpyxl
+xlsxwriter
+
+# Media / image
+pillow
+
+# Utilities
+tqdm
+python-dotenv
+requests

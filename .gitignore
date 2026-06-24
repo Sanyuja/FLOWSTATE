@@ -1,31 +1,27 @@
-# ============================================================
+# =============================================================
 # FLOWSTATE .gitignore
-# RULE: Share the framework. Keep your pipelines private.
-# ============================================================
+# Share the framework. Keep your personal config private.
+# =============================================================
 
-# ── SECRETS & CREDENTIALS ───────────────────────────────────
+# --- Secrets & credentials ---
 .env
 .env.*
 !.env.example
-credentials/
 *.key
 *.pem
-*.p12
 
-# ── PERSONA CONFIGS (your private voice + content rules) ────
-persona.json
-personas/
-voice-brief.json
-voice-brief.md
+# --- Your personal persona config (edit the example, don't commit yours) ---
+config/persona.json
+config/personas/
 
-# ── N8N WORKFLOW EXPORTS (contain your folder paths + IDs) ──
-# Export your real workflows locally. Never push them.
-# Only the sanitized /workflows/reference-workflow.json goes in.
-*_pipeline.json
-*_approval_handler.json
-*_workflow_personal.json
+# --- Runtime state files (generated, not source) ---
+pending_approvals.json
+pending_approvals_*.json
+pending_reels.json
+*_temp.json
+*_args_temp.json
 
-# ── CONTENT & MEDIA (never commit content files) ────────────
+# --- Content & media (never commit) ---
 *.jpg
 *.jpeg
 *.png
@@ -35,17 +31,11 @@ voice-brief.md
 *.avi
 *.webm
 *.mp3
-
-# ── LOCAL DATA ───────────────────────────────────────────────
-pending_approvals.json
-pending_reels.json
-*_temp.json
+*.wav
 *.csv
-content_db/
-_vault/
-_approved/
+*.xlsx
 
-# ── PYTHON ───────────────────────────────────────────────────
+# --- Python ---
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -55,20 +45,19 @@ venv/
 .venv/
 env/
 
-# ── NODE / SHARP ─────────────────────────────────────────────
+# --- Node ---
 node_modules/
 npm-debug.log*
 package-lock.json
 
-# ── OS ───────────────────────────────────────────────────────
+# --- OS ---
 .DS_Store
 Thumbs.db
 desktop.ini
 *.swp
-*.swo
 *~
 
-# ── EDITORS ──────────────────────────────────────────────────
+# --- IDE ---
 .vscode/
 .idea/
 *.code-workspace
