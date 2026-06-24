@@ -14,3 +14,11 @@ pillow
 tqdm
 python-dotenv
 requests
+
+# ── Content Intelligence layer (content_tagger.py) ────────────────────────────
+# Heavier deps — install separately if using the content intelligence pipeline:
+#
+#   pip install open_clip_torch torch torchvision mediapipe opencv-python
+#
+# For GPU acceleration (optional, 10-50x faster on large libraries):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121

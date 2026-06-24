@@ -73,14 +73,19 @@ Content posts to all platforms for that persona
 
 ```
 flowstate/
-├── workflows/                         <- Import these three files into n8n
+├── workflows/                         <- Import these into n8n
 │   ├── image_pipeline.json            <- Folder watcher -> blur -> captions -> WhatsApp
 │   ├── approval_handler.json          <- Receives your reply -> posts to platforms
-│   └── reel_creator.json             <- WhatsApp IDEA -> assembles reel -> preview
+│   ├── reel_creator.json             <- WhatsApp IDEA -> assembles reel -> preview
+│   └── trend_scout.json              <- Daily 9am: trends + inventory -> WhatsApp nudge
 │
 ├── scripts/                           <- Deployed to your content scripts folder
 │   ├── blur.js                        <- Node.js: GPT-4o Vision + Sharp blur
-│   └── reel_creator.py               <- Python: FFmpeg reel assembly pipeline
+│   ├── reel_creator.py               <- Python: FFmpeg reel assembly pipeline
+│   ├── content_tagger.py             <- CLIP ViT-L-14: auto-tags your library
+│   ├── content_refiner.py            <- Claude Vision: enriches labels + writes captions
+│   ├── content_organizer.py          <- Moves raw files to categorized folders
+│   └── content_db_updater.py        <- Builds master DB + content_inventory.json
 │
 ├── config/
 │   └── persona.example.json           <- Your persona definition -- start here
@@ -93,7 +98,8 @@ flowstate/
 │   ├── how-it-works.md               <- Full system architecture
 │   ├── persona-setup.md              <- Configuring your persona and folders
 │   ├── credentials-setup.md          <- Getting every API key, step by step
-│   └── reel-creator.md              <- Using the reel creator
+│   ├── reel-creator.md              <- Using the reel creator
+│   └── content-intelligence.md      <- Content library + Trend Scout guide
 │
 ├── .env.example                       <- All environment variables you need
 ├── requirements.txt                   <- Python dependencies
@@ -233,6 +239,42 @@ The system will:
 Available styles: `smooth` · `energetic` · `slow_burn` · `dramatic`
 
 See [docs/reel-creator.md](docs/reel-creator.md) for the full guide.
+
+---
+
+## Content intelligence — Trend Scout
+
+This optional layer organizes your content library and sends you a daily trend-matched post suggestion before you even open your phone.
+
+**The content pipeline (run weekly or after a content drop):**
+
+```
+content_tagger.py       ← CLIP ViT-L-14 auto-tags every file (local, free, GPU-accelerated)
+       ↓
+content_refiner.py      ← Claude Haiku Vision enriches hero images + writes captions
+       ↓
+content_organizer.py    ← moves files from raw to categorized folders based on CLIP tags
+       ↓
+content_db_updater.py   ← master_content_db.xlsx + content_inventory.json
+```
+
+**The Trend Scout (runs daily at 9am from n8n):**
+
+```
+GPT-4o researches what's trending in your niches today
+       ↓
+scores your unposted library against those trends
+       ↓
+generates 3 trend-aware captions for the best match
+       ↓
+WhatsApp: "Trending: #quietluxury → Best match: coffee/IMG_0234.jpg → Y1/Y2/Y3"
+       ↓
+you reply in 5 seconds → existing approval flow posts it
+```
+
+**Cost:** ~$0.02-0.05/day for the Trend Scout (GPT-4o calls). The content tagger is free and runs locally.
+
+See [docs/content-intelligence.md](docs/content-intelligence.md) for the full setup guide.
 
 ---
 
