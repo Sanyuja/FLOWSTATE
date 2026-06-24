@@ -268,15 +268,31 @@ flowstate/
 
 ## Quick start
 
-### Prerequisites
+### Option A — Docker (recommended)
+
+Runs on any OS. No Node.js, Python, or n8n to install globally.
+
+```bash
+git clone https://github.com/Sanyuja/FLOWSTATE
+cd FLOWSTATE
+cp .env.example .env
+# Fill in .env with your API keys and CONTENT_PATH
+docker compose up -d
+```
+
+See [docs/docker-setup.md](docs/docker-setup.md) for the complete guide including ngrok setup, workflow import, and token auto-refresh.
+
+---
+
+### Option B — Native Windows
+
+#### Prerequisites
 
 - Windows PC (always-on preferred)
-- Node.js 20+
-- Python 3.10+
-- n8n: `npm install -g n8n`
-- PM2: `npm install -g pm2`
+- Node.js 20+, Python 3.10+
+- `npm install -g n8n pm2`
 
-### 1. Run the setup script
+#### 1. Run setup
 
 ```powershell
 # Run PowerShell as Administrator
@@ -285,44 +301,36 @@ cd flowstate
 .\setup\install_reel_deps.ps1
 ```
 
-### 2. Set your credentials
+#### 2. Set credentials
 
-Copy `.env.example` and follow [docs/credentials-setup.md](docs/credentials-setup.md) to get each API key.
+Copy `.env.example` and follow [docs/credentials-setup.md](docs/credentials-setup.md).
 
 ```powershell
 [System.Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "sk-...", "Machine")
-[System.Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "sk-ant-...", "Machine")
-[System.Environment]::SetEnvironmentVariable("TWILIO_ACCOUNT_SID", "AC...", "Machine")
+[System.Environment]::SetEnvironmentVariable("CONTENT_BASE", "D:\your-content-folder", "Machine")
 # ... full list in docs/credentials-setup.md
 pm2 restart n8n
 ```
 
-### 3. Configure your persona
+#### 3. Configure your persona
 
-Copy `config/persona.example.json` → `config/persona.json`. Fill in your `voice_brief`, `niches`, platforms, and content folder rules. This is the only file you configure. See [docs/persona-setup.md](docs/persona-setup.md).
+Copy `config/persona.example.json` → `config/persona.json`. Fill in `voice_brief`, `niches`, platforms, and content folder rules. See [docs/persona-setup.md](docs/persona-setup.md).
 
-### 4. Build your content library
-
-Point `CONTENT_BASE` at your content folder and run the pipeline once:
+#### 4. Build your content library
 
 ```powershell
-python scripts/content_tagger.py       # tags everything (first run downloads ~800MB CLIP model)
+python scripts/content_tagger.py       # tags everything (~800MB model download on first run)
 python scripts/content_refiner.py      # enriches top images + writes captions
-python scripts/content_organizer.py --dry-run  # preview the folder moves, then run live
+python scripts/content_organizer.py --dry-run  # preview moves, then run live
 python scripts/content_db_updater.py   # builds master DB + content_inventory.json
 ```
 
-### 5. Import n8n workflows
+#### 5. Import n8n workflows and test
 
-1. Start n8n: `pm2 start n8n`
-2. Open `http://localhost:5678`
-3. Import all four workflows from `workflows/`
-4. In each workflow, update the folder path (marked `CONFIGURE THIS`)
-5. Activate all workflows
-
-### 6. Test it
-
-Drop an image into your content folder. Wait 30 seconds. A WhatsApp approval message should arrive.
+1. Start n8n: `pm2 start n8n` → open `http://localhost:5678`
+2. Import all workflows from `workflows/`
+3. Update `CONFIGURE THIS` sections in each workflow
+4. Activate, then drop an image into your content folder — a WhatsApp message should arrive in ~30s
 
 ---
 
@@ -361,7 +369,7 @@ Each is completely isolated — different voice, different rules, different plat
 
 **Instagram + Threads tokens:** Expire every 60 days. Set a calendar reminder at day 50 to refresh. Commands are in [docs/credentials-setup.md](docs/credentials-setup.md).
 
-**Windows only (currently):** Setup scripts are `.ps1`. n8n itself runs anywhere — Linux/Mac users can adapt the folder paths and skip the setup scripts.
+**Platform:** Docker deployment works on Mac, Linux, and Windows. Native setup scripts are Windows-only (`.ps1`). Linux/Mac users without Docker can adapt the folder paths and skip the setup scripts.
 
 **Trend research is not real-time:** The Trend Scout uses GPT-4o's training knowledge, which is directionally accurate but not live. Upgrade to the Perplexity API or a RapidAPI hashtag endpoint for real-time trends. See [docs/content-intelligence.md](docs/content-intelligence.md).
 

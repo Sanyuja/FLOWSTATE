@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Environment files (never bake into image)
+.env
+.env.*
+
+# Runtime state (generated at runtime, not source)
+data/
+
+# Personal config
+config/persona.json
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+
+# Media (never in image)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.mp4
+*.mov
+*.avi
+*.csv
+*.xlsx
+assets/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,62 @@
+# =============================================================
+# FLOWSTATE — Docker Compose
+# See docs/docker-setup.md for the full setup guide
+# =============================================================
+
+services:
+  n8n:
+    build: .
+    container_name: flowstate-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n            # n8n database, workflows, credentials
+      - ${CONTENT_PATH}:/data/content       # your media library (set CONTENT_PATH in .env)
+      - ./data:/data/scripts                # runtime state: pending_approvals.json, tokens.json
+      - ./scripts:/data/src:ro              # FLOWSTATE scripts (read-only inside container)
+    environment:
+      # n8n core
+      N8N_HOST: "localhost"
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: "http"
+      N8N_ENCRYPTION_KEY: "${N8N_ENCRYPTION_KEY}"
+      WEBHOOK_URL: "${WEBHOOK_URL:-http://localhost:5678}"
+      # Allow Code nodes to require Sharp + Node built-ins
+      NODE_PATH: "/home/node/n8n-modules/node_modules"
+      NODE_FUNCTION_ALLOW_EXTERNAL: "sharp"
+      NODE_FUNCTION_ALLOW_BUILTIN: "fs,path,crypto,child_process,buffer"
+      # FLOWSTATE paths — referenced by all n8n workflows and Python scripts
+      SCRIPTS_DIR: "/data/scripts"
+      SCRIPTS_SRC: "/data/src"
+      CONTENT_BASE: "/data/content"
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Optional: ngrok tunnel so Twilio can reach n8n webhooks
+  # Run with:  docker compose --profile ngrok up -d
+  # Get URL:   docker compose logs ngrok | grep "url="
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: flowstate-ngrok
+    restart: unless-stopped
+    # If you have a static ngrok domain, change this to:
+    # command: http --domain=your-static-domain.ngrok-free.app n8n:5678
+    command: http n8n:5678
+    environment:
+      NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN}"
+    depends_on:
+      n8n:
+        condition: service_healthy
+    profiles:
+      - ngrok
+
+volumes:
+  n8n_data:
+    name: flowstate-n8n-data    # named for easy backup: docker run --rm -v flowstate-n8n-data:/data alpine tar czf - /data

@@ -20,6 +20,8 @@ pending_approvals_*.json
 pending_reels.json
 *_temp.json
 *_args_temp.json
+data/*.json
+!data/.gitkeep
 
 # --- Content & media (never commit) ---
 *.jpg

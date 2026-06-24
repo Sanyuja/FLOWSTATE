@@ -1,0 +1,42 @@
+{
+  "name": "FLOWSTATE — Token Auto-Refresh",
+  "nodes": [
+    {
+      "id": "node-tok-001",
+      "name": "⏰ Monthly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 320],
+      "parameters": {
+        "rule": {
+          "interval": [{
+            "field": "cronExpression",
+            "expression": "0 10 1 * *"
+          }]
+        }
+      }
+    },
+    {
+      "id": "node-tok-002",
+      "name": "🔑 Refresh Instagram + Threads Tokens",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 320],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ============================================================\n// FLOWSTATE — Token Auto-Refresh\n// Runs on the 1st of each month at 10am.\n// Refreshes Instagram + Threads long-lived tokens via Meta API.\n// Saves to tokens.json — approval workflow reads this on every\n// run, so no n8n restart is needed after a refresh.\n// ============================================================\nconst fs   = require('fs');\nconst path = require('path');\n\nconst SCRIPTS_DIR = process.env.SCRIPTS_DIR || '/data/scripts';\nconst TOKENS_FILE = path.join(SCRIPTS_DIR, 'tokens.json');\n\nconst TWILIO_SID   = process.env.TWILIO_ACCOUNT_SID   || $env.TWILIO_ACCOUNT_SID;\nconst TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN     || $env.TWILIO_AUTH_TOKEN;\nconst TWILIO_FROM  = process.env.TWILIO_WHATSAPP_FROM  || $env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';\nconst TWILIO_TO    = process.env.TWILIO_WHATSAPP_TO    || $env.TWILIO_WHATSAPP_TO;\n\nasync function sendWhatsApp(msg) {\n  const url   = 'https://api.twilio.com/2010-04-01/Accounts/' + TWILIO_SID + '/Messages.json';\n  const creds = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');\n  await fetch(url, {\n    method:  'POST',\n    headers: { 'Authorization': 'Basic ' + creds, 'Content-Type': 'application/x-www-form-urlencoded' },\n    body:    new URLSearchParams({ From: TWILIO_FROM, To: TWILIO_TO, Body: msg }).toString(),\n  });\n}\n\n// ── Read current tokens (prefer tokens.json over env vars) ──────────────────\nlet currentIG = process.env.INSTAGRAM_ACCESS_TOKEN || '';\nlet currentTH = process.env.THREADS_ACCESS_TOKEN   || '';\ntry {\n  if (fs.existsSync(TOKENS_FILE)) {\n    const stored = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'));\n    if (stored.instagram_access_token) currentIG = stored.instagram_access_token;\n    if (stored.threads_access_token)   currentTH = stored.threads_access_token;\n    console.log('[TokenRefresh] Loaded current tokens from', TOKENS_FILE);\n  }\n} catch(e) { console.log('[TokenRefresh] Could not read tokens.json:', e.message); }\n\nconst results = { ig: null, th: null, errors: [] };\n\n// ── Refresh Instagram token ──────────────────────────────────────────────────\nif (currentIG) {\n  try {\n    const res  = await fetch('https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=' + currentIG);\n    const data = await res.json();\n    if (data.access_token) {\n      results.ig = data.access_token;\n      console.log('[TokenRefresh] Instagram: refreshed. Expires in ~', Math.round((data.expires_in || 5183944) / 86400), 'days');\n    } else {\n      const errMsg = data.error ? data.error.message : JSON.stringify(data).substring(0, 150);\n      results.errors.push('Instagram: ' + errMsg);\n      console.log('[TokenRefresh] Instagram error:', errMsg);\n    }\n  } catch(e) {\n    results.errors.push('Instagram fetch error: ' + e.message);\n  }\n} else {\n  results.errors.push('INSTAGRAM_ACCESS_TOKEN not set — skipped');\n}\n\n// ── Refresh Threads token ────────────────────────────────────────────────────\nif (currentTH) {\n  try {\n    const res  = await fetch('https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=' + currentTH);\n    const data = await res.json();\n    if (data.access_token) {\n      results.th = data.access_token;\n      console.log('[TokenRefresh] Threads: refreshed. Expires in ~', Math.round((data.expires_in || 5183944) / 86400), 'days');\n    } else {\n      const errMsg = data.error ? data.error.message : JSON.stringify(data).substring(0, 150);\n      results.errors.push('Threads: ' + errMsg);\n      console.log('[TokenRefresh] Threads error:', errMsg);\n    }\n  } catch(e) {\n    results.errors.push('Threads fetch error: ' + e.message);\n  }\n} else {\n  results.errors.push('THREADS_ACCESS_TOKEN not set — skipped');\n}\n\n// ── Save refreshed tokens to tokens.json ────────────────────────────────────\nconst expiresApprox = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toDateString();\nconst tokensData = {\n  instagram_access_token: results.ig || currentIG,\n  threads_access_token:   results.th || currentTH,\n  last_refreshed:         new Date().toISOString(),\n  expires_approximately:  expiresApprox,\n};\nfs.writeFileSync(TOKENS_FILE, JSON.stringify(tokensData, null, 2));\nconsole.log('[TokenRefresh] Saved to', TOKENS_FILE);\n\n// ── Send WhatsApp notification ───────────────────────────────────────────────\nconst igLine = results.ig ? '\\u2705 Instagram token refreshed' : '\\u26a0\\ufe0f Instagram: ' + (results.errors.find(e => e.startsWith('Instagram')) || 'failed');\nconst thLine = results.th ? '\\u2705 Threads token refreshed'   : '\\u26a0\\ufe0f Threads: '   + (results.errors.find(e => e.startsWith('Threads'))   || 'failed');\n\nconst errBlock = results.errors.length > 0\n  ? '\\n\\n\\u26a0\\ufe0f Errors:\\n' + results.errors.join('\\n')\n  : '';\n\nconst msg = [\n  '\\ud83d\\udd11 FLOWSTATE \\u2014 Tokens Auto-Refreshed',\n  '',\n  igLine,\n  thLine,\n  '',\n  'Valid until: ~' + expiresApprox,\n  '',\n  'No action needed \\u2014 tokens load automatically on the next approval.'\n  + errBlock,\n].join('\\n');\n\nawait sendWhatsApp(msg);\nconsole.log('[TokenRefresh] Done. IG:', results.ig ? 'OK' : 'FAILED', '| Threads:', results.th ? 'OK' : 'FAILED');\n\nreturn [{\n  action:    'token_refresh_complete',\n  instagram: results.ig ? 'refreshed' : 'failed',\n  threads:   results.th ? 'refreshed' : 'failed',\n  savedTo:   TOKENS_FILE,\n  errors:    results.errors,\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "⏰ Monthly Schedule": {
+      "main": [[
+        { "node": "🔑 Refresh Instagram + Threads Tokens", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "tags": [{ "name": "content-creator" }, { "name": "token-refresh" }],
+  "pinData": {}
+}
