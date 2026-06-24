@@ -10,6 +10,10 @@ No apps to open. No captions to write. No scheduling.
 
 ---
 
+![FLOWSTATE WhatsApp approval flow — drop a file, get a ping, reply Y2, it's live](assets/flowstate-demo.gif)
+
+---
+
 ## How it works
 
 ```

@@ -27,6 +27,11 @@ pending_reels.json
 *.png
 *.gif
 *.mp4
+# Exception: repo assets (demo GIFs, screenshots)
+!assets/
+!assets/*.gif
+!assets/*.png
+!assets/*.jpg
 *.mov
 *.avi
 *.webm
